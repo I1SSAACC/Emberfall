@@ -7,8 +7,10 @@ public class PlayerStatsDisplay : MonoBehaviour
     [SerializeField] private TMP_Text _nicknameText;
     [SerializeField] private TMP_Text _levelText;
     [SerializeField] private TMP_Text _levelField;
-    [SerializeField] private TMP_Text _goldText;
-    [SerializeField] private TMP_Text _diamondText;
+    [SerializeField] private TMP_Text _goldMenuText;
+    [SerializeField] private TMP_Text _goldShopText;
+    [SerializeField] private TMP_Text _diamondMenuText;
+    [SerializeField] private TMP_Text _diamondShopText;
     [SerializeField] private TMP_Text _tokenField;
 
     private void Start()
@@ -28,8 +30,10 @@ public class PlayerStatsDisplay : MonoBehaviour
         _nicknameText.text = pd.Nickname;
         _levelText.text = pd.Level.ToString();
         _levelField.text = $"{pd.LevelField.ToString()}/{Constant.GetLevelThreshold(pd.Level)}";
-        _goldText.text = pd.Gold.ToString("N0");
-        _diamondText.text = pd.Diamonds.ToString("N0");
+        _goldMenuText.text = pd.Gold.ToString("N0");
+        _goldShopText.text = pd.Gold.ToString("N0");
+        _diamondMenuText.text = pd.Diamonds.ToString("N0");
+        _diamondShopText.text = pd.Diamonds.ToString("N0");
         _tokenField.text = $"{pd.TokenField.ToString()}/100";
     }
 }

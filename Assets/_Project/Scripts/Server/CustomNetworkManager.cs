@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+п»їusing System.Collections.Generic;
 using System.Linq;
 using Mirror;
 using UnityEngine;
@@ -15,7 +15,7 @@ public class CustomNetworkManager : NetworkManager
             StartServer();
     }
 
-    // туловище дикшенари перенести сюда
+    // С‚СѓР»РѕРІРёС‰Рµ РґРёРєС€РµРЅР°СЂРё РїРµСЂРµРЅРµСЃС‚Рё СЃСЋРґР°
     internal readonly Dictionary<NetworkConnectionToClient, string> connectionToGuid
         = new Dictionary<NetworkConnectionToClient, string>();
 
@@ -24,14 +24,14 @@ public class CustomNetworkManager : NetworkManager
     public override void OnStartServer()
     {
         base.OnStartServer();
-        // подставляем свой аутентификатор
+        // РїРѕРґСЃС‚Р°РІР»СЏРµРј СЃРІРѕР№ Р°СѓС‚РµРЅС‚РёС„РёРєР°С‚РѕСЂ
         if (authenticator == null)
             authenticator = GetComponent<DeviceAuthenticator>();
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
     {
-        // сначала сбрасываем флаг isOnline
+        // СЃРЅР°С‡Р°Р»Р° СЃР±СЂР°СЃС‹РІР°РµРј С„Р»Р°Рі isOnline
         if (connectionToGuid.TryGetValue(conn, out var guid))
         {
             var dm = ServerDataManager.Instance;
@@ -44,7 +44,7 @@ public class CustomNetworkManager : NetworkManager
             connectionToGuid.Remove(conn);
         }
 
-        // потом отпускаем Mirror-логику
+        // РїРѕС‚РѕРј РѕС‚РїСѓСЃРєР°РµРј Mirror-Р»РѕРіРёРєСѓ
         base.OnServerDisconnect(conn);
     }
 }

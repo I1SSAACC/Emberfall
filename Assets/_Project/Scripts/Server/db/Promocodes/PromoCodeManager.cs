@@ -41,20 +41,10 @@ public class PromoCodeManager : MonoBehaviour
             {
                 new PromoCodeEntry
                 {
-                    code = "FREECHOICE",
+                    code = "ALPHA",
                     rewards = new List<RewardOption>
                     {
-                        new RewardOption { type = RewardType.Gold,     amount = 100 },
-                        new RewardOption { type = RewardType.Diamonds, amount = 10  },
-                        new RewardOption { type = RewardType.Tokens,   amount = 5   },
-                    }
-                },
-                new PromoCodeEntry
-                {
-                    code = "GEMBONUS",
-                    rewards = new List<RewardOption>
-                    {
-                        new RewardOption { type = RewardType.Diamonds, amount = 50 }
+                        new RewardOption { type = RewardType.Gold, amount = 500 }
                     }
                 }
             };
@@ -79,7 +69,7 @@ public class PromoCodeManager : MonoBehaviour
             conn.Send(new RedeemPromoResponse
             {
                 success = false,
-                message = "Неизвестный клиент"
+                message = "Unknown client"
             });
             return;
         }
@@ -106,7 +96,7 @@ public class PromoCodeManager : MonoBehaviour
         conn.Send(new RedeemPromoResponse
         {
             success = true,
-            message = $"Вы получили {option.amount} {option.type}",
+            message = $"You received {option.amount} {option.type}",
             rewardType = option.type,
             amount = option.amount
         });
@@ -119,12 +109,12 @@ public class PromoCodeManager : MonoBehaviour
         entry = promoCodes.Find(e => e.code.Equals(code, StringComparison.OrdinalIgnoreCase));
         if (entry == null)
         {
-            message = "Промокод не найден.";
+            message = "Gift code not found.";
             return false;
         }
         if (pd.RedeemedPromoCodes.Contains(entry.code))
         {
-            message = "Вы уже использовали этот промокод.";
+            message = "You have already used this promo code.";
             return false;
         }
         message = "OK";

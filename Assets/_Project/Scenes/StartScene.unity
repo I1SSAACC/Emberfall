@@ -7888,8 +7888,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _loadingSlider: {fileID: 8165821593885966323}
   _progressText: {fileID: 8165821594894225864}
-  _loadDuration: 1
-  _postDelay: 1
+  _loadDuration: 3
+  _postDelay: 2
   _objectToDisable: {fileID: 8211861784303156502}
   _objectToEnable: {fileID: 2854281620633224271}
 --- !u!224 &8211861784732301670

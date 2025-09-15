@@ -1,25 +1,31 @@
-using System.IO;
+﻿using System.IO;
 using UnityEngine;
 
 public static class DbPaths
 {
-    // �������� ����� "db"
-    public static readonly string DbFolder =
-        Path.Combine(Application.persistentDataPath, "db");
+    // 1) Корень билда: это папка, где лежит ваш .exe (в Linux/Mac — аналогично)
+    private static readonly string BuildRoot =
+#if UNITY_EDITOR
+        // в редакторе удобнее смотреть в Assets, но можно переназначить
+        Application.dataPath;
+#else
+        // в собранном билде Application.dataPath → "<MyGame>_Data"
+        // Path.GetDirectoryName вернёт путь к папке с .exe
+        Path.GetDirectoryName(Application.dataPath);
+#endif
 
-    // ����� ��� ��������� � �������� �������
-    public static readonly string PlayerFolder =
-        Path.Combine(DbFolder, "Player");
+    // 2) Главная папка для всех JSON
+    public static readonly string DbFolder = Path.Combine(BuildRoot, "db");
 
-    // ����� JSON ���� ���������
-    public static readonly string AccountsFile =
-        Path.Combine(PlayerFolder, "accounts.json");
+    // 3) Папка для аккаунтов и их общей базы
+    public static readonly string PlayerFolder = Path.Combine(DbFolder, "Player");
 
-    // ����� � ������� �������������� ��������
-    public static readonly string PlayersDataFolder =
-        Path.Combine(PlayerFolder, "PlayersData");
+    // 4) Файл accounts.json (список всех аккаунтов)
+    public static readonly string AccountsFile = Path.Combine(PlayerFolder, "accounts.json");
 
-    // ���� � JSON ����������
-    public static readonly string PromoFile =
-        Path.Combine(DbFolder, "promo.json");
+    // 5) Папка со всеми личными данными игроков
+    public static readonly string PlayersDataFolder = Path.Combine(PlayerFolder, "PlayersData");
+
+    // 6) Файл для промокодов
+    public static readonly string PromoFile = Path.Combine(DbFolder, "promo.json");
 }
