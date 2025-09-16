@@ -1,12 +1,26 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class HeroIcon : MonoBehaviour
+public class HeroIcon : ButtonClickInformer
 {
     [SerializeField] private Image _image;
+    
+    private Hero _hero;
 
-    public void SetIcon(Sprite sprite)
+    public event Action<HeroIcon> Clicked;
+
+    public Hero Hero => _hero;
+
+    public void SetHero(Hero hero)
     {
-        _image.sprite = sprite;
+        _hero = hero;
+        SetIcon(hero.Sprite);
     }
+
+    public void SetIcon(Sprite sprite) =>
+        _image.sprite = sprite;
+
+    protected override void OnClick() =>
+        Clicked?.Invoke(this);
 }
