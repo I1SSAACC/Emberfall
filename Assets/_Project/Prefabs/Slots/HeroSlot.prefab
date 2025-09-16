@@ -164,6 +164,8 @@ GameObject:
   - component: {fileID: 2571100920164438045}
   - component: {fileID: 2571100920164438046}
   - component: {fileID: 2437617551458996278}
+  - component: {fileID: 6210085658339358367}
+  - component: {fileID: -5955129391488418054}
   m_Layer: 5
   m_Name: HeroSlot
   m_TagString: Untagged
@@ -251,6 +253,34 @@ MonoBehaviour:
   _gradient: {fileID: 2571100921050930637}
   _level: {fileID: 5679762875317752628}
   _stars: {fileID: 1165131349697655469}
+--- !u!225 &6210085658339358367
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2571100920164438040}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
+--- !u!114 &-5955129391488418054
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2571100920164438040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95af70b11f44b6e49992d12cd9aeed50, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _moveDuration: 0.12
+  _snapDistance: 90
+  _originalSlot: {fileID: 0}
+  _currentPoint: {fileID: 0}
 --- !u!1 &2571100920245381503
 GameObject:
   m_ObjectHideFlags: 0

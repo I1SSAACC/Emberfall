@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1917820277795550904}
   - component: {fileID: 3147723622850051660}
+  - component: {fileID: 8657318634870287360}
   m_Layer: 5
   m_Name: PlayerSpawnPoint
   m_TagString: Untagged
@@ -49,7 +50,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2da727e2510c4f24ebcca3e82d4bc257, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _isAvailablePlayer: 0
+  _isAvailablePlayer: 1
+--- !u!114 &8657318634870287360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3442060275164281056}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbe7271e94732a543b869d1e562f9a78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Occupant: {fileID: 0}
+  IsLocked: 0
 --- !u!1 &3930168534032134914
 GameObject:
   m_ObjectHideFlags: 0
