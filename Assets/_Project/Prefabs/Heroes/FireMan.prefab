@@ -561,7 +561,7 @@ RectTransform:
   m_GameObject: {fileID: 8091803231152493160}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: -1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6715952845876929979}
@@ -622,7 +622,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 82c5adb7cd28e6243b3a421e86274447, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _sprite: {fileID: 21300000, guid: 279752a51107d429c80f1530d653b8c9, type: 3}
+  _character: {fileID: 21300000, guid: 279752a51107d429c80f1530d653b8c9, type: 3}
+  _frame: {fileID: 0}
+  _levelShield: {fileID: 21300000, guid: 0aa457f380905464fad519a5d662ed48, type: 3}
+  _gradient: {r: 0.80784315, g: 0.18329301, b: 0.043137267, a: 1}
+  _starsCount: 1
+  _level: 2
+  _damage: 6
+  _defense: 6
+  _health: 20
 --- !u!1 &8421098096300185372
 GameObject:
   m_ObjectHideFlags: 0
