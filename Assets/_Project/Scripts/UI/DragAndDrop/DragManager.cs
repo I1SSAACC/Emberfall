@@ -6,16 +6,22 @@ public class DragManager : MonoBehaviour
 {
     public static DragManager Instance { get; private set; }
 
+    [SerializeField] private List<DropPoint> _dropPoints = new();
+
+    private bool _isBusy;
+
     public RectTransform PanelRect;
     public float MoveDuration;
     public float SnapDistance;
-    public bool IsBusy;
 
-    [SerializeField] private List<DropPoint> _dropPoints = new List<DropPoint>();
+    public bool IsBusy => _isBusy;
 
-    void Awake()
+
+    private void Awake()
     {
-        if (Instance == null) Instance = this;
+        if (Instance == null) 
+            Instance = this;
+
         else Destroy(gameObject);
     }
 
@@ -61,5 +67,13 @@ public class DragManager : MonoBehaviour
             }
         }
         return best;
+    }
+
+    public void SetBusyStatus(bool isBusy)
+    {
+        if (_isBusy == isBusy) 
+            return;
+
+        _isBusy = isBusy;
     }
 }

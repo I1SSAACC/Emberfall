@@ -3,34 +3,29 @@ using UnityEngine;
 [RequireComponent(typeof(RectTransform))]
 public class DropPoint : MonoBehaviour
 {
-    public RectTransform Rect { get; private set; }
-    public DraggableItem Occupant;
-    public bool IsLocked;
+    private RectTransform _rectTransform;
+    private DraggableItem _draggableItem;
 
-    void Awake()
-    {
-        Rect = GetComponent<RectTransform>();
-        Occupant = null;
-        IsLocked = false;
-    }
+    public RectTransform Rect => _rectTransform;
 
-    public bool IsOccupied => Occupant != null || IsLocked;
+    public DraggableItem DraggableItem => _draggableItem;
+
+    public bool CanOccupy => _draggableItem != null;
+
+    private void Awake() =>
+        _rectTransform = transform as RectTransform;
 
     public void Reserve(DraggableItem item)
     {
-        IsLocked = true;
-        Occupant = item;
+        if(item == null)
+            throw new System.ArgumentNullException(nameof(item));
+
+        _draggableItem = item;
     }
 
-    public void Commit(DraggableItem item)
-    {
-        IsLocked = false;
-        Occupant = item;
-    }
+    public void Replace(DraggableItem item) =>
+        _draggableItem = item;
 
-    public void Clear()
-    {
-        IsLocked = false;
-        Occupant = null;
-    }
+    public void Clear() =>
+        _draggableItem = null;
 }
