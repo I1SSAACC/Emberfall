@@ -1,6 +1,4 @@
-﻿// DeviceAuthenticator.cs
-using System;
-using System.Linq;
+﻿using System;
 using Mirror;
 using UnityEngine;
 
@@ -10,6 +8,7 @@ public struct RegisterRequestMessage : NetworkMessage
     public string email;
     public string nickname;
     public string passwordHash;
+    public string deviceId;
 }
 
 public struct RegisterResponseMessage : NetworkMessage
@@ -37,6 +36,11 @@ public struct AutoLoginRequestMessage : NetworkMessage
 {
     public string deviceId;
 }
+
+public struct LogoutRequestMessage : NetworkMessage
+{
+    public string deviceId;
+}
 #endregion
 
 public enum AuthType { None, Login, Auto }
@@ -51,145 +55,247 @@ public static class AuthRequestData
 
 public class DeviceAuthenticator : NetworkAuthenticator
 {
-    // SERVER SIDE
-
     public override void OnStartServer()
     {
         NetworkServer.RegisterHandler<RegisterRequestMessage>(OnRegisterRequest, false);
         NetworkServer.RegisterHandler<LoginRequestMessage>(OnLoginRequest, false);
         NetworkServer.RegisterHandler<AutoLoginRequestMessage>(OnAutoLoginRequest, false);
+        NetworkServer.RegisterHandler<LogoutRequestMessage>(OnLogoutRequest, false);
     }
 
-    public override void OnServerAuthenticate(NetworkConnectionToClient conn)
-    {
-        // waiting for Register/Login/AutoLogin
-    }
+    public override void OnServerAuthenticate(NetworkConnectionToClient conn) { }
 
     private void OnRegisterRequest(NetworkConnectionToClient conn, RegisterRequestMessage msg)
     {
-        var dm = ServerDataManager.Instance;
-
-        if (dm.accountsDb.accounts.Any(a => a.email == msg.email))
+        if (string.IsNullOrEmpty(msg.email) || string.IsNullOrEmpty(msg.nickname) || string.IsNullOrEmpty(msg.passwordHash))
         {
-            conn.Send(new RegisterResponseMessage
-            {
-                success = false,
-                message = "Email already in use"
-            });
+            conn.Send(new RegisterResponseMessage { success = false, message = "Invalid registration data" });
             return;
         }
 
-        if (dm.accountsDb.accounts.Any(a => a.nickname == msg.nickname))
+        ServerDataManager dm = ServerDataManager.Instance;
+        if (dm == null)
         {
-            conn.Send(new RegisterResponseMessage
-            {
-                success = false,
-                message = "Nickname already in use"
-            });
+            conn.Send(new RegisterResponseMessage { success = false, message = "Server data unavailable" });
+            Debug.LogError("[AuthServer] ServerDataManager.Instance is null on register");
             return;
         }
 
-        var newGuid = Guid.NewGuid().ToString();
-        var entry = new AccountEntry
+        if (dm.CreateAccount(msg.email, msg.nickname, msg.passwordHash, out string createMessage) == false)
         {
-            guid = newGuid,
-            email = msg.email,
-            nickname = msg.nickname,
-            passwordHash = msg.passwordHash,
-            isOnline = false,
-            deviceId = ""
-        };
-        dm.accountsDb.accounts.Add(entry);
-        dm.SaveAccounts();
+            conn.Send(new RegisterResponseMessage { success = false, message = createMessage });
+            return;
+        }
 
-        // create player file with defaults
-        dm.LoadOrCreatePlayer(newGuid, msg.email, msg.nickname);
-
-        conn.Send(new RegisterResponseMessage
+        AccountEntry createdEntry = dm.accountsDb.Accounts.Find(a => string.Equals(a.Nickname, msg.nickname, StringComparison.OrdinalIgnoreCase));
+        if (createdEntry == null)
         {
-            success = true,
-            message = "Registered successfully"
-        });
+            conn.Send(new RegisterResponseMessage { success = false, message = "Registration failed (no entry)" });
+            return;
+        }
+
+        try
+        {
+            if (!string.IsNullOrEmpty(msg.deviceId))
+            {
+                PlayerData pd = dm.LoadOrCreatePlayer(createdEntry.Guid);
+                if (pd.DeviceId == null) pd.DeviceId = new System.Collections.Generic.List<string>();
+                if (!pd.DeviceId.Contains(msg.deviceId))
+                {
+                    pd.DeviceId.Add(msg.deviceId);
+                    dm.SavePlayer(pd);
+                    Debug.Log($"[AuthServer] Attached device {msg.deviceId} to player {createdEntry.Guid}");
+                }
+                else
+                {
+                    Debug.Log($"[AuthServer] Device {msg.deviceId} already present for player {createdEntry.Guid}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[AuthServer] Failed to attach device id on registration: {ex}");
+            conn.Send(new RegisterResponseMessage { success = true, message = "Registered but device attach failed" });
+            return;
+        }
+
+        // Reply register success
+        conn.Send(new RegisterResponseMessage { success = true, message = "Registered successfully" });
+        Debug.Log($"[AuthServer] Registered new account {msg.nickname}");
+
+        // Attempt auto-login: mark online, map connection, send LoginResponse, ServerAccept
+        try
+        {
+            dm.MarkAccountOnline(createdEntry.Guid);
+
+            if (NetworkManager.singleton is CustomNetworkManager nm)
+                nm.AddConnectionGuid(conn, createdEntry.Guid);
+
+            PlayerData pdToSend = dm.LoadOrCreatePlayer(createdEntry.Guid);
+            string playerJson = JsonUtility.ToJson(pdToSend, true);
+
+            conn.Send(new LoginResponseMessage { success = true, playerJson = playerJson, message = "Login after registration successful" });
+
+            ServerAccept(conn);
+
+            Debug.Log($"[AuthServer] Auto-logged in newly registered account {createdEntry.Nickname} from connection {conn.connectionId}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AuthServer] Failed to finalize login after registration: {ex}");
+            dm.MarkAccountOffline(createdEntry.Guid);
+            conn.Send(new LoginResponseMessage { success = false, message = "Registration succeeded but auto-login failed" });
+        }
     }
 
     private void OnLoginRequest(NetworkConnectionToClient conn, LoginRequestMessage msg)
     {
-        var dm = ServerDataManager.Instance;
-        var entry = dm.accountsDb.accounts
-                     .FirstOrDefault(a => a.nickname == msg.nickname);
-
-        if (entry == null || entry.passwordHash != msg.passwordHash)
+        if (string.IsNullOrEmpty(msg.nickname) || string.IsNullOrEmpty(msg.passwordHash))
         {
-            conn.Send(new LoginResponseMessage
-            {
-                success = false,
-                message = "Incorrect username or password"
-            });
+            conn.Send(new LoginResponseMessage { success = false, message = "Invalid credentials" });
             return;
         }
 
-        if (entry.isOnline)
+        ServerDataManager dm = ServerDataManager.Instance;
+        if (dm == null)
         {
-            conn.Send(new LoginResponseMessage
-            {
-                success = false,
-                message = "This account is already logged in"
-            });
+            conn.Send(new LoginResponseMessage { success = false, message = "Server data unavailable" });
+            Debug.LogError("[AuthServer] ServerDataManager.Instance is null on login");
             return;
         }
 
-        if (msg.rememberMe)
-            entry.deviceId = msg.deviceId;
-
-        entry.isOnline = true;
-        dm.SaveAccounts();
-
-        if (NetworkManager.singleton is CustomNetworkManager nm)
-            nm.connectionToGuid[conn] = entry.guid;
-
-        var pd = dm.LoadOrCreatePlayer(entry.guid);
-        conn.Send(new LoginResponseMessage
+        AccountEntry entry = dm.VerifyLogin(msg.nickname, msg.passwordHash, msg.rememberMe, msg.deviceId, out string verifyMessage);
+        if (entry == null)
         {
-            success = true,
-            playerJson = JsonUtility.ToJson(pd, true)
-        });
+            conn.Send(new LoginResponseMessage { success = false, message = verifyMessage });
+            return;
+        }
+
+        // If account is reported online by VerifyLogin (it sets IsOnline) we proceed normally.
+        // Add mapping and send player data
+        if (NetworkManager.singleton is CustomNetworkManager nmAdd)
+            nmAdd.AddConnectionGuid(conn, entry.Guid);
+
+        PlayerData pd;
+        try
+        {
+            pd = dm.LoadOrCreatePlayer(entry.Guid);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AuthServer] Failed to load player data for {entry.Guid}: {ex}");
+            conn.Send(new LoginResponseMessage { success = false, message = "Failed to load player data" });
+            return;
+        }
+
+        conn.Send(new LoginResponseMessage { success = true, playerJson = JsonUtility.ToJson(pd, true), message = "Login successful" });
 
         ServerAccept(conn);
+        Debug.Log($"[AuthServer] Account {entry.Nickname} logged in from connection {conn.connectionId}");
     }
 
     private void OnAutoLoginRequest(NetworkConnectionToClient conn, AutoLoginRequestMessage msg)
     {
-        var dm = ServerDataManager.Instance;
-        var entry = dm.accountsDb.accounts
-                     .FirstOrDefault(a => a.deviceId == msg.deviceId);
+        Debug.Log($"[AuthServer] OnAutoLoginRequest received deviceId={msg.deviceId} from connection {conn.connectionId}");
 
-        if (entry == null || entry.isOnline)
+        if (string.IsNullOrEmpty(msg.deviceId))
         {
-            conn.Send(new LoginResponseMessage
-            {
-                success = false,
-                message = "Auto-login not possible"
-            });
+            conn.Send(new LoginResponseMessage { success = false, message = "Invalid device id" });
             return;
         }
 
-        entry.isOnline = true;
-        dm.SaveAccounts();
-
-        if (NetworkManager.singleton is CustomNetworkManager nm)
-            nm.connectionToGuid[conn] = entry.guid;
-
-        var pd = dm.LoadOrCreatePlayer(entry.guid);
-        conn.Send(new LoginResponseMessage
+        ServerDataManager dm = ServerDataManager.Instance;
+        if (dm == null)
         {
-            success = true,
-            playerJson = JsonUtility.ToJson(pd, true)
-        });
+            conn.Send(new LoginResponseMessage { success = false, message = "Server data unavailable" });
+            Debug.LogError("[AuthServer] ServerDataManager.Instance is null on autologin");
+            return;
+        }
 
+        AccountEntry found = dm.FindByDeviceId(msg.deviceId);
+
+        if (found == null)
+        {
+            conn.Send(new LoginResponseMessage { success = false, message = "No account for this device" });
+            Debug.Log($"[AuthServer] FindByDeviceId returned null for deviceId={msg.deviceId}");
+            return;
+        }
+
+        // Tolerant handling: if account already marked online, allow reattach if same connection already mapped
+        if (found.IsOnline)
+        {
+            if (NetworkManager.singleton is CustomNetworkManager nm)
+            {
+                if (nm.TryGetGuid(conn, out string existingGuid) && string.Equals(existingGuid, found.Guid, StringComparison.Ordinal))
+                {
+                    Debug.Log($"[AuthServer] Re-attaching existing connection for guid {found.Guid}");
+                    // allow proceed
+                }
+                else
+                {
+                    conn.Send(new LoginResponseMessage { success = false, message = "Account already online" });
+                    Debug.Log($"[AuthServer] Auto-login rejected because account {found.Nickname} is already online");
+                    return;
+                }
+            }
+            else
+            {
+                conn.Send(new LoginResponseMessage { success = false, message = "Account already online" });
+                Debug.Log($"[AuthServer] Auto-login rejected because account {found.Nickname} is already online (no nm)");
+                return;
+            }
+        }
+
+        dm.MarkAccountOnline(found.Guid);
+
+        if (NetworkManager.singleton is CustomNetworkManager nmAdd)
+            nmAdd.AddConnectionGuid(conn, found.Guid);
+
+        PlayerData pdFound;
+        try
+        {
+            pdFound = dm.LoadOrCreatePlayer(found.Guid);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AuthServer] Failed to load player data for {found.Guid}: {ex}");
+            conn.Send(new LoginResponseMessage { success = false, message = "Failed to load player data" });
+            return;
+        }
+
+        conn.Send(new LoginResponseMessage { success = true, playerJson = JsonUtility.ToJson(pdFound, true), message = "Auto-login successful" });
         ServerAccept(conn);
+        Debug.Log($"[AuthServer] Auto-logged in {found.Nickname} from device {msg.deviceId}");
     }
 
-    // CLIENT SIDE
+    private void OnLogoutRequest(NetworkConnectionToClient conn, LogoutRequestMessage msg)
+    {
+        ServerDataManager dm = ServerDataManager.Instance;
+        if (dm == null)
+        {
+            Debug.LogWarning("[AuthServer] ServerDataManager.Instance is null on logout");
+            return;
+        }
+
+        if (NetworkManager.singleton is CustomNetworkManager nm)
+        {
+            if (nm.TryGetGuid(conn, out string guid))
+            {
+                if (!string.IsNullOrEmpty(guid))
+                {
+                    if (!string.IsNullOrEmpty(msg.deviceId))
+                        dm.RemoveDeviceIdFromPlayer(guid, msg.deviceId);
+
+                    dm.MarkAccountOffline(guid);
+                }
+
+                nm.RemoveConnectionGuid(conn);
+            }
+        }
+
+        conn.Disconnect();
+        Debug.Log($"[AuthServer] Logout processed for connection {conn.connectionId}");
+    }
 
     public override void OnStartClient()
     {
@@ -201,19 +307,29 @@ public class DeviceAuthenticator : NetworkAuthenticator
         switch (AuthRequestData.Type)
         {
             case AuthType.Login:
-                NetworkClient.Send(new LoginRequestMessage
+                if (string.IsNullOrEmpty(AuthRequestData.Nickname) || string.IsNullOrEmpty(AuthRequestData.Password))
+                {
+                    Debug.LogWarning("[AuthClient] No credentials provided");
+                    return;
+                }
+
+                LoginRequestMessage loginMsg = new LoginRequestMessage
                 {
                     nickname = AuthRequestData.Nickname,
                     passwordHash = HashUtility.SHA512(AuthRequestData.Password),
-                    deviceId = SystemInfo.deviceUniqueIdentifier,
+                    deviceId = DeviceIdHelper.GetLocalDeviceId(),
                     rememberMe = AuthRequestData.RememberMe
-                });
+                };
+
+                AuthRequestData.Password = null;
+
+                NetworkClient.Send(loginMsg);
                 break;
 
             case AuthType.Auto:
                 NetworkClient.Send(new AutoLoginRequestMessage
                 {
-                    deviceId = SystemInfo.deviceUniqueIdentifier
+                    deviceId = DeviceIdHelper.GetLocalDeviceId()
                 });
                 break;
 
@@ -225,15 +341,34 @@ public class DeviceAuthenticator : NetworkAuthenticator
 
     private void OnClientLoginResponse(LoginResponseMessage msg)
     {
-        if (!msg.success)
+        if (msg.success == false)
         {
             ClientReject();
-            AuthUIController.Instance.ShowLoginPanel(msg.message);
+            if (AuthUIController.Instance != null)
+                AuthUIController.Instance.ShowLoginPanel(msg.message);
+
+            Debug.LogWarning($"[AuthClient] Login failed: {msg.message}");
             return;
         }
 
-        var pd = JsonUtility.FromJson<PlayerData>(msg.playerJson);
+        PlayerData pd;
+        try
+        {
+            pd = JsonUtility.FromJson<PlayerData>(msg.playerJson);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AuthClient] Failed to deserialize player data: {ex}");
+            ClientReject();
+            if (AuthUIController.Instance != null)
+                AuthUIController.Instance.ShowLoginPanel("Failed to parse player data");
+
+            return;
+        }
+
         ClientGameState.Instance.Initialize(pd);
+
         ClientAccept();
+        Debug.Log("[AuthClient] Login successful and client state initialized");
     }
 }

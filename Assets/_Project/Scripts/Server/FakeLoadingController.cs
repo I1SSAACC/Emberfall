@@ -14,8 +14,10 @@ public class FakeLoadingController : MonoBehaviour
 
     private void Start()
     {
-        if (_objectToDisable != null) _objectToDisable.SetActive(true);
-        if (_objectToEnable != null) _objectToEnable.SetActive(false);
+        if (_objectToDisable != null)
+            _objectToDisable.SetActive(true);
+        if (_objectToEnable != null)
+            _objectToEnable.SetActive(false);
 
         StartCoroutine(LoadRoutine());
     }
