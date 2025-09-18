@@ -172,18 +172,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8198d4b9c5792ff4f86dd03ed276b4be, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  regPanel: {fileID: 5694435758532050478}
-  regEmail: {fileID: 5694435758790781226}
-  regNickname: {fileID: 5694435757890367297}
-  regPassword: {fileID: 5694435758859951357}
-  regButton: {fileID: 5694435757442697846}
-  regFeedback: {fileID: 985399836}
-  loginPanel: {fileID: 2854281620633224271}
-  loginNickname: {fileID: 2854281620590753291}
-  loginPassword: {fileID: 2854281619430695890}
-  rememberToggle: {fileID: 2854281619954772025}
-  loginButton: {fileID: 2854281619978531985}
-  loginFeedback: {fileID: 1398026160}
+  _regPanel: {fileID: 5694435758532050478}
+  _regEmail: {fileID: 5694435758790781226}
+  _regNickname: {fileID: 5694435757890367297}
+  _regPassword: {fileID: 5694435758859951357}
+  _regButton: {fileID: 5694435757442697846}
+  _regFeedback: {fileID: 985399836}
+  _loginPanel: {fileID: 2854281620633224271}
+  _loginNickname: {fileID: 2854281620590753291}
+  _loginPassword: {fileID: 2854281619430695890}
+  _loginButton: {fileID: 2854281619978531985}
+  _loginFeedback: {fileID: 1398026160}
+  _panelLoading: {fileID: 8211861784303156502}
+  _startGameButton: {fileID: 5229901143756021209}
 --- !u!1 &378898860
 GameObject:
   m_ObjectHideFlags: 0
@@ -266,22 +267,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2854281620633224271}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 5694435758532050478}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
+      - m_Target: {fileID: 70713326}
+        m_TargetAssemblyTypeName: AuthUIController, Assembly-CSharp
+        m_MethodName: ShowLoginPanel
+        m_Mode: 5
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -819,7 +808,7 @@ MonoBehaviour:
   evaluationMethod: 0
   evaluationInterval: 3
   timeInterpolationGui: 0
-  autoStartServer: 0
+  _autoStartServer: 0
 --- !u!114 &1133510469
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1295,7 +1284,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   accountsDb:
-    accounts: []
+    Accounts: []
 --- !u!1 &2083178408
 GameObject:
   m_ObjectHideFlags: 0
@@ -2476,22 +2465,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 2854281620633224271}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-      - m_Target: {fileID: 5694435758532050478}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
+      - m_Target: {fileID: 70713326}
+        m_TargetAssemblyTypeName: AuthUIController, Assembly-CSharp
+        m_MethodName: ShowRegisterPanel
+        m_Mode: 5
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -2713,7 +2690,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!222 &2854281619954771974
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -7730,7 +7707,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: 1.8999023, y: 111.81006}
+  m_AnchoredPosition: {x: 1.8994141, y: 111.81006}
   m_SizeDelta: {x: -889.0161, y: 76}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &8165821593885966323

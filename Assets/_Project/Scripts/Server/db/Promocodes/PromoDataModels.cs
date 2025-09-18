@@ -3,17 +3,14 @@ using System.Collections.Generic;
 
 namespace PromoCodes
 {
-    // типы наград
     [Serializable]
     public enum RewardType
     {
         Gold,
         Diamonds,
         Tokens
-        // Е другие, если нужно
     }
 
-    // одна опци€ награды
     [Serializable]
     public class RewardOption
     {
@@ -21,7 +18,6 @@ namespace PromoCodes
         public int amount;
     }
 
-    // запись промокода
     [Serializable]
     public class PromoCodeEntry
     {
@@ -29,7 +25,6 @@ namespace PromoCodes
         public List<RewardOption> rewards = new List<RewardOption>();
     }
 
-    // обЄртка дл€ сериализации списка
     [Serializable]
     public class PromoCodeList
     {

@@ -9,113 +9,169 @@ public class PromoUIController : MonoBehaviour
 {
     [Header("Promo Input Panel")]
     [SerializeField] private GameObject _settingsPanel;
-    [SerializeField] private GameObject inputPanel;
-    [SerializeField] private TMP_InputField promoInput;
-    [SerializeField] private Button redeemButton;
-    [SerializeField] private TMP_Text feedbackText;
+    [SerializeField] private GameObject _inputPanel;
+    [SerializeField] private TMP_InputField _promoInput;
+    [SerializeField] private Button _redeemButton;
+    [SerializeField] private TMP_Text _feedbackText;
 
     [Header("Reward Panel")]
-    [SerializeField] private CanvasGroup rewardGroup;      // same GameObject as reward panel
-    [SerializeField] private Image rewardIcon;
-    [SerializeField] private TMP_Text rewardAmountText;
-    [SerializeField] private Button rewardOkButton;
-    [SerializeField] private float fadeDuration = 0.5f;
+    [SerializeField] private CanvasGroup _rewardGroup;
+    [SerializeField] private Image _rewardIcon;
+    [SerializeField] private TMP_Text _rewardAmountText;
+    [SerializeField] private Button _rewardOkButton;
+    [SerializeField] private float _fadeDuration = 0.5f;
 
     [Header("Reward Sprites")]
-    [SerializeField] private Sprite goldSprite;
-    [SerializeField] private Sprite diamondsSprite;
-    [SerializeField] private Sprite tokensSprite;
+    [SerializeField] private Sprite _goldSprite;
+    [SerializeField] private Sprite _diamondsSprite;
+    [SerializeField] private Sprite _tokensSprite;
 
     private void Awake()
     {
         NetworkClient.RegisterHandler<RedeemPromoResponse>(OnClientPromoResponse, false);
     }
 
+    private void Start()
+    {
+        if (_redeemButton != null)
+            _redeemButton.onClick.AddListener(OnRedeemClicked);
+
+        if (_rewardOkButton != null)
+            _rewardOkButton.onClick.AddListener(OnOkClicked);
+
+        if (_rewardGroup != null)
+            _rewardGroup.gameObject.SetActive(false);
+    }
+
     private void OnDestroy()
     {
         NetworkClient.UnregisterHandler<RedeemPromoResponse>();
-    }
 
-    private void Start()
-    {
-        redeemButton.onClick.AddListener(OnRedeemClicked);
-        rewardOkButton.onClick.AddListener(OnOkClicked);
+        if (_redeemButton != null)
+            _redeemButton.onClick.RemoveListener(OnRedeemClicked);
 
-        // hide reward panel at start
-        rewardGroup.gameObject.SetActive(false);
+        if (_rewardOkButton != null)
+            _rewardOkButton.onClick.RemoveListener(OnOkClicked);
     }
 
     private void OnRedeemClicked()
     {
-        feedbackText.text = "";
-        string code = promoInput.text.Trim();
-        if (ClientGameState.Instance.CurrentPlayerData == null)
+        if (_feedbackText != null)
+            _feedbackText.text = string.Empty;
+
+        if (_promoInput == null)
+            return;
+
+        string code = _promoInput.text.Trim();
+
+        if (ClientGameState.Instance == null || ClientGameState.Instance.CurrentPlayerData == null)
         {
-            feedbackText.text = "Please log in first.";
+            if (_feedbackText != null)
+                _feedbackText.text = "Please log in first.";
             return;
         }
+
         NetworkClient.Send(new RedeemPromoRequest { code = code });
     }
 
     private void OnClientPromoResponse(RedeemPromoResponse resp)
     {
-        if (!resp.success)
+        if (resp.success == false)
         {
-            feedbackText.text = resp.message;
+            if (_feedbackText != null)
+                _feedbackText.text = resp.message;
             return;
         }
 
-        // update local profile and HUD
-        var pd = ClientGameState.Instance.CurrentPlayerData;
-        switch (resp.rewardType)
+        if (ClientGameState.Instance == null)
         {
-            case RewardType.Gold: pd.Gold += resp.amount; break;
-            case RewardType.Diamonds: pd.Diamonds += resp.amount; break;
-            case RewardType.Tokens: pd.TokenField += resp.amount; break;
-        }
-        FindObjectOfType<PlayerStatsDisplay>()?.UpdateStats();
-
-        // prepare reward UI
-        rewardAmountText.text = resp.amount.ToString();
-        switch (resp.rewardType)
-        {
-            case RewardType.Gold: rewardIcon.sprite = goldSprite; break;
-            case RewardType.Diamonds: rewardIcon.sprite = diamondsSprite; break;
-            default: rewardIcon.sprite = tokensSprite; break;
+            Debug.LogWarning("[PromoUI] ClientGameState is null on promo response");
+            return;
         }
 
-        // hide input panel
-        inputPanel.SetActive(false);
-        _settingsPanel.SetActive(false);
+        PlayerData pd = ClientGameState.Instance.CurrentPlayerData;
+        if (pd == null)
+        {
+            if (_feedbackText != null)
+                _feedbackText.text = "Player data missing";
+            return;
+        }
 
-        // show & fade in reward panel
-        var panelGO = rewardGroup.gameObject;
+        switch (resp.rewardType)
+        {
+            case RewardType.Gold:
+                pd.Gold += resp.amount;
+                break;
+            case RewardType.Diamonds:
+                pd.Diamonds += resp.amount;
+                break;
+            case RewardType.Tokens:
+                pd.TokenField += resp.amount;
+                break;
+            default:
+                Debug.LogWarning($"[PromoUI] Unknown reward type {resp.rewardType}");
+                break;
+        }
+
+        PlayerStatsDisplay statsDisplay = FindObjectOfType<PlayerStatsDisplay>();
+        if (statsDisplay != null)
+            statsDisplay.UpdateStats();
+
+        if (_rewardAmountText != null)
+            _rewardAmountText.text = resp.amount.ToString();
+
+        switch (resp.rewardType)
+        {
+            case RewardType.Gold:
+                if (_rewardIcon != null) _rewardIcon.sprite = _goldSprite;
+                break;
+            case RewardType.Diamonds:
+                if (_rewardIcon != null) _rewardIcon.sprite = _diamondsSprite;
+                break;
+            default:
+                if (_rewardIcon != null) _rewardIcon.sprite = _tokensSprite;
+                break;
+        }
+
+        if (_inputPanel != null)
+            _inputPanel.SetActive(false);
+
+        if (_settingsPanel != null)
+            _settingsPanel.SetActive(false);
+
+        if (_rewardGroup == null)
+            return;
+
+        GameObject panelGO = _rewardGroup.gameObject;
         panelGO.SetActive(true);
-        rewardGroup.alpha = 0f;
-        rewardGroup.interactable = false;
-        rewardGroup.blocksRaycasts = false;
+        _rewardGroup.alpha = 0f;
+        _rewardGroup.interactable = false;
+        _rewardGroup.blocksRaycasts = false;
 
         StartCoroutine(FadeCanvasGroup(
-            rewardGroup, 0f, 1f, fadeDuration,
+            _rewardGroup, 0f, 1f, _fadeDuration,
             onComplete: () =>
             {
-                rewardGroup.interactable = true;
-                rewardGroup.blocksRaycasts = true;
+                _rewardGroup.interactable = true;
+                _rewardGroup.blocksRaycasts = true;
             }));
     }
 
     private void OnOkClicked()
     {
-        // fade out reward panel, then disable both panels
-        rewardGroup.interactable = false;
-        rewardGroup.blocksRaycasts = false;
+        if (_rewardGroup == null)
+            return;
+
+        _rewardGroup.interactable = false;
+        _rewardGroup.blocksRaycasts = false;
+
         StartCoroutine(FadeCanvasGroup(
-            rewardGroup, 1f, 0f, fadeDuration,
+            _rewardGroup, 1f, 0f, _fadeDuration,
             onComplete: () =>
             {
-                rewardGroup.gameObject.SetActive(false);
-                inputPanel.SetActive(false);
-                _settingsPanel.SetActive(false);
+                _rewardGroup.gameObject.SetActive(false);
+                if (_inputPanel != null) _inputPanel.SetActive(false);
+                if (_settingsPanel != null) _settingsPanel.SetActive(false);
             }));
     }
 
@@ -128,12 +184,14 @@ public class PromoUIController : MonoBehaviour
     {
         float t = 0f;
         cg.alpha = from;
+
         while (t < duration)
         {
             t += Time.unscaledDeltaTime;
             cg.alpha = Mathf.Lerp(from, to, t / duration);
             yield return null;
         }
+
         cg.alpha = to;
         onComplete?.Invoke();
     }

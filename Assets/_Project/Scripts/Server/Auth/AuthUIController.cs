@@ -6,28 +6,33 @@ using UnityEngine.UI;
 
 public class AuthUIController : MonoBehaviour
 {
-    public static AuthUIController Instance;
+    public static AuthUIController Instance { get; private set; }
 
     [Header("Registration Panel")]
-    [SerializeField] private GameObject regPanel;
-    [SerializeField] private TMP_InputField regEmail;
-    [SerializeField] private TMP_InputField regNickname;
-    [SerializeField] private TMP_InputField regPassword;
-    [SerializeField] private Button regButton;
-    [SerializeField] private TMP_Text regFeedback;
+    [SerializeField] private GameObject _regPanel;
+    [SerializeField] private TMP_InputField _regEmail;
+    [SerializeField] private TMP_InputField _regNickname;
+    [SerializeField] private TMP_InputField _regPassword;
+    [SerializeField] private Button _regButton;
+    [SerializeField] private TMP_Text _regFeedback;
 
     [Header("Login Panel")]
-    [SerializeField] private GameObject loginPanel;
-    [SerializeField] private TMP_InputField loginNickname;
-    [SerializeField] private TMP_InputField loginPassword;
-    [SerializeField] private Toggle rememberToggle;
-    [SerializeField] private Button loginButton;
-    [SerializeField] private TMP_Text loginFeedback;
+    [SerializeField] private GameObject _loginPanel;
+    [SerializeField] private TMP_InputField _loginNickname;
+    [SerializeField] private TMP_InputField _loginPassword;
+    [SerializeField] private Button _loginButton;
+    [SerializeField] private TMP_Text _loginFeedback;
 
-    private string _pendingRegEmail;
-    private string _pendingRegNickname;
-    private string _pendingRegPassword;
+    [Header("Gameplay")]
+    [SerializeField] private GameObject _panelLoading;
+    [SerializeField] private Button _startGameButton;
+
+    private string _pendingRegisteredPassword;
+
     private bool _isWaitingForRegister;
+    private bool _isConnecting;
+    private Coroutine _connectCoroutine;
+    private bool _isLoggedIn;
 
     private void Awake()
     {
@@ -36,139 +41,346 @@ public class AuthUIController : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+
         Instance = this;
+
+        if (ValidateInspectorFields() == false)
+        {
+            Debug.LogError("[AuthUI] Missing inspector references. Disabling AuthUIController.");
+            enabled = false;
+            return;
+        }
 
         NetworkClient.RegisterHandler<RegisterResponseMessage>(OnRegisterResponse, false);
         NetworkClient.RegisterHandler<LoginResponseMessage>(OnLoginResponse, false);
+
+        NetworkClient.OnDisconnectedEvent += OnClientDisconnected;
     }
 
     private void Start()
     {
-        if (PlayerPrefs.GetInt("RememberMe", 0) == 1)
-        {
-            loginFeedback.text = "Attempting auto-login...";
-            AuthRequestData.Type = AuthType.Auto;
-            NetworkManager.singleton.StartClient();
-            return;
-        }
+        _regButton.onClick.AddListener(OnRegisterClicked);
+        _loginButton.onClick.AddListener(OnLoginClicked);
 
-        regButton.onClick.AddListener(OnRegisterClicked);
-        loginButton.onClick.AddListener(OnLoginClicked);
+        if (_startGameButton != null)
+            _startGameButton.onClick.AddListener(OnStartGameClicked);
+
+        AuthRequestData.Type = AuthType.None;
+    }
+
+    private bool ValidateInspectorFields()
+    {
+        if (_regPanel == null || _regEmail == null || _regNickname == null || _regPassword == null || _regButton == null || _regFeedback == null)
+            return false;
+
+        if (_loginPanel == null || _loginNickname == null || _loginPassword == null || _loginButton == null || _loginFeedback == null)
+            return false;
+
+        return true;
+    }
+
+    private void OnDestroy()
+    {
+        NetworkClient.UnregisterHandler<RegisterResponseMessage>();
+        NetworkClient.UnregisterHandler<LoginResponseMessage>();
+        NetworkClient.OnDisconnectedEvent -= OnClientDisconnected;
+
+        if (_regButton != null)
+            _regButton.onClick.RemoveListener(OnRegisterClicked);
+
+        if (_loginButton != null)
+            _loginButton.onClick.RemoveListener(OnLoginClicked);
+
+        if (_startGameButton != null)
+            _startGameButton.onClick.RemoveListener(OnStartGameClicked);
+
+        if (_connectCoroutine != null)
+        {
+            StopCoroutine(_connectCoroutine);
+            _connectCoroutine = null;
+        }
     }
 
     public void ShowLoginPanel(string message = "")
     {
-        regPanel.SetActive(false);
-        loginPanel.SetActive(true);
-        loginFeedback.text = message;
+        if (_regPanel != null)
+            _regPanel.SetActive(false);
+
+        if (_loginPanel != null)
+            _loginPanel.SetActive(true);
+
+        if (_loginFeedback != null)
+            _loginFeedback.text = message;
     }
 
     public void ShowRegisterPanel(string message = "")
     {
-        loginPanel.SetActive(false);
-        regPanel.SetActive(true);
-        regFeedback.text = message;
+        if (_loginPanel != null)
+            _loginPanel.SetActive(false);
+
+        if (_regPanel != null)
+            _regPanel.SetActive(true);
+
+        if (_regFeedback != null)
+            _regFeedback.text = message;
     }
 
     private void OnRegisterClicked()
     {
-        if (string.IsNullOrEmpty(regEmail.text) ||
-            string.IsNullOrEmpty(regNickname.text) ||
-            string.IsNullOrEmpty(regPassword.text))
+        if (_regEmail == null || _regNickname == null || _regPassword == null || _regFeedback == null)
+            return;
+
+        if (_isWaitingForRegister)
         {
-            regFeedback.text = "Please fill out all fields";
+            _regFeedback.text = "Request already in progress. Please wait.";
             return;
         }
 
-        regFeedback.text = "Registering...";
-        _isWaitingForRegister = true;
-        _pendingRegEmail = regEmail.text;
-        _pendingRegNickname = regNickname.text;
-        _pendingRegPassword = regPassword.text;
-
-        if (!NetworkClient.isConnected)
+        if (string.IsNullOrEmpty(_regEmail.text) || string.IsNullOrEmpty(_regNickname.text) || string.IsNullOrEmpty(_regPassword.text))
         {
-            NetworkManager.singleton.StartClient();
-            StartCoroutine(WaitAndSendRegister());
+            _regFeedback.text = "Please fill out all fields";
+            return;
+        }
+
+        _isWaitingForRegister = true;
+        _regFeedback.text = "Registering...";
+
+        string email = _regEmail.text;
+        string nickname = _regNickname.text;
+        string plainPassword = _regPassword.text;
+
+        _pendingRegisteredPassword = plainPassword;
+
+        if (NetworkClient.isConnected == false)
+        {
+            if (_isConnecting == false)
+            {
+                _isConnecting = true;
+                NetworkManager.singleton.StartClient();
+            }
+
+            if (_connectCoroutine != null)
+                StopCoroutine(_connectCoroutine);
+
+            _connectCoroutine = StartCoroutine(WaitForConnectionThen(() => SendRegister(email, nickname, plainPassword), 10f));
         }
         else
         {
-            SendRegister();
+            SendRegister(email, nickname, plainPassword);
         }
     }
 
-    private IEnumerator WaitAndSendRegister()
+    private IEnumerator WaitForConnectionThen(System.Action action, float timeoutSeconds)
     {
-        while (!NetworkClient.isConnected)
+        float t = 0f;
+        while (NetworkClient.isConnected == false && t < timeoutSeconds)
+        {
+            t += Time.deltaTime;
             yield return null;
-        SendRegister();
+        }
+
+        _connectCoroutine = null;
+        _isConnecting = NetworkClient.isConnected;
+
+        if (NetworkClient.isConnected == false)
+        {
+            _isWaitingForRegister = false;
+            if (_regFeedback != null)
+                _regFeedback.text = "Failed to connect. Please try again.";
+
+            ClearInputPassword();
+            yield break;
+        }
+
+        action?.Invoke();
     }
 
-    private void SendRegister()
+    private void SendRegister(string email, string nickname, string plainPassword)
     {
-        var msg = new RegisterRequestMessage
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(nickname) || string.IsNullOrEmpty(plainPassword))
         {
-            email = _pendingRegEmail,
-            nickname = _pendingRegNickname,
-            passwordHash = HashUtility.SHA512(_pendingRegPassword)
+            _isWaitingForRegister = false;
+            if (_regFeedback != null)
+                _regFeedback.text = "Registration data missing.";
+            return;
+        }
+
+        RegisterRequestMessage msg = new RegisterRequestMessage
+        {
+            email = email,
+            nickname = nickname,
+            passwordHash = HashUtility.SHA512(plainPassword),
+            deviceId = DeviceIdHelper.GetLocalDeviceId()
         };
+
         NetworkClient.Send(msg);
+    }
+
+    private void ClearInputPassword()
+    {
+        if (_regPassword != null)
+            _regPassword.text = string.Empty;
+
+        if (_loginPassword != null)
+            _loginPassword.text = string.Empty;
     }
 
     private void OnRegisterResponse(RegisterResponseMessage msg)
     {
-        if (!_isWaitingForRegister) return;
         _isWaitingForRegister = false;
 
         Debug.Log($"[AuthUI] RegisterResponse: success={msg.success}, msg={msg.message}");
-        regFeedback.text = msg.message;
-        if (!msg.success) return;
 
-        loginFeedback.text = "Registered! Logging in…";
-        AuthRequestData.Type = AuthType.Login;
-        AuthRequestData.Nickname = _pendingRegNickname;
-        AuthRequestData.Password = _pendingRegPassword;
-        AuthRequestData.RememberMe = false;
+        if (_regFeedback != null)
+            _regFeedback.text = msg.message;
 
-        var loginMsg = new LoginRequestMessage
-        {
-            nickname = _pendingRegNickname,
-            passwordHash = HashUtility.SHA512(_pendingRegPassword),
-            deviceId = SystemInfo.deviceUniqueIdentifier,
-            rememberMe = false
-        };
-        NetworkClient.Send(loginMsg);
+        if (msg.success == false)
+            return;
+
+        if (_loginFeedback != null)
+            _loginFeedback.text = "Registered! Logging in…";
+
+        _pendingRegisteredPassword = null;
+
+        if (_regPassword != null)
+            _regPassword.text = string.Empty;
+
+        AuthRequestData.Type = AuthType.None;
+        AuthRequestData.Nickname = null;
+        AuthRequestData.Password = null;
     }
 
     private void OnLoginClicked()
     {
-        if (string.IsNullOrEmpty(loginNickname.text) ||
-            string.IsNullOrEmpty(loginPassword.text))
+        if (_loginNickname == null || _loginPassword == null || _loginFeedback == null)
+            return;
+
+        if (string.IsNullOrEmpty(_loginNickname.text) || string.IsNullOrEmpty(_loginPassword.text))
         {
-            loginFeedback.text = "Please enter username and password";
+            _loginFeedback.text = "Please enter username and password";
             return;
         }
 
         AuthRequestData.Type = AuthType.Login;
-        AuthRequestData.Nickname = loginNickname.text;
-        AuthRequestData.Password = loginPassword.text;
-        AuthRequestData.RememberMe = rememberToggle.isOn;
+        AuthRequestData.Nickname = _loginNickname.text;
+        AuthRequestData.Password = _loginPassword.text;
+        AuthRequestData.RememberMe = false;
 
-        loginFeedback.text = "Logging in…";
-        NetworkManager.singleton.StartClient();
+        _loginFeedback.text = "Logging in…";
+
+        if (NetworkClient.isConnected == false)
+        {
+            if (_isConnecting == false)
+            {
+                _isConnecting = true;
+                NetworkManager.singleton.StartClient();
+            }
+
+            if (_connectCoroutine != null)
+                StopCoroutine(_connectCoroutine);
+
+            _connectCoroutine = StartCoroutine(WaitForConnectionThen(null, 10f));
+            return;
+        }
+
+        // user requested manual login — always send immediate request
+        var immediateLogin = new LoginRequestMessage
+        {
+            nickname = AuthRequestData.Nickname,
+            passwordHash = HashUtility.SHA512(AuthRequestData.Password),
+            deviceId = DeviceIdHelper.GetLocalDeviceId(),
+            rememberMe = AuthRequestData.RememberMe
+        };
+
+        AuthRequestData.Password = null;
+
+        NetworkClient.Send(immediateLogin);
     }
 
     private void OnLoginResponse(LoginResponseMessage msg)
     {
         Debug.Log($"[AuthUI] LoginResponse: success={msg.success}, msg={msg.message}");
-        if (!msg.success)
+
+        if (msg.success == false)
         {
             ShowLoginPanel(msg.message);
             return;
         }
 
-        PlayerPrefs.SetInt("RememberMe", rememberToggle.isOn ? 1 : 0);
-        PlayerPrefs.Save();
+        _isLoggedIn = true;
+        ClearInputPassword();
+    }
 
+    private void OnStartGameClicked()
+    {
+        StartGame();
+    }
+
+    public void StartGame()
+    {
+        if (_isLoggedIn)
+        {
+            Debug.Log("[AuthUI] StartGame: user already logged in, proceeding to game");
+            return;
+        }
+
+        // set Auto intent before starting client so OnClientConnect can send AutoLoginRequest
+        AuthRequestData.Type = AuthType.Auto;
+
+        if (NetworkClient.isConnected == false)
+        {
+            if (_isConnecting == false)
+            {
+                _isConnecting = true;
+                NetworkManager.singleton.StartClient();
+            }
+
+            if (_connectCoroutine != null)
+                StopCoroutine(_connectCoroutine);
+
+            _connectCoroutine = StartCoroutine(WaitForConnectionThen(() =>
+            {
+                // nothing extra needed here — OnClientConnect will send AutoLoginRequest
+            }, 10f));
+        }
+        else
+        {
+            // already connected — send AutoLoginRequest immediately
+            NetworkClient.Send(new AutoLoginRequestMessage { deviceId = DeviceIdHelper.GetLocalDeviceId() });
+            Debug.Log("[AuthUI] StartGame: sent AutoLoginRequest (already connected)");
+        }
+    }
+
+    public void HandleLoggedOut()
+    {
+        if (NetworkClient.isConnected)
+        {
+            try
+            {
+                NetworkClient.Send(new LogoutRequestMessage { deviceId = DeviceIdHelper.GetLocalDeviceId() });
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[AuthUI] Failed to send logout request: {ex}");
+            }
+        }
+
+        _isLoggedIn = false;
+
+        AuthRequestData.Type = AuthType.None;
+        AuthRequestData.Nickname = null;
+        AuthRequestData.Password = null;
+        AuthRequestData.RememberMe = false;
+
+        if (NetworkManager.singleton != null && NetworkClient.isConnected)
+            NetworkManager.singleton.StopClient();
+
+        ShowLoginPanel();
+    }
+
+    private void OnClientDisconnected()
+    {
+        ShowLoginPanel("Disconnected from server");
+        _isConnecting = false;
     }
 }

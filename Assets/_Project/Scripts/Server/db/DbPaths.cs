@@ -3,29 +3,43 @@ using UnityEngine;
 
 public static class DbPaths
 {
-    // 1) Корень билда: это папка, где лежит ваш .exe (в Linux/Mac — аналогично)
-    private static readonly string BuildRoot =
+    private static string GetBuildRoot()
+    {
 #if UNITY_EDITOR
-        // в редакторе удобнее смотреть в Assets, но можно переназначить
-        Application.dataPath;
+        return Application.dataPath;
 #else
-        // в собранном билде Application.dataPath → "<MyGame>_Data"
-        // Path.GetDirectoryName вернёт путь к папке с .exe
-        Path.GetDirectoryName(Application.dataPath);
+        string dir = Path.GetDirectoryName(Application.dataPath);
+        return string.IsNullOrEmpty(dir) ? Application.persistentDataPath : dir;
 #endif
+    }
 
-    // 2) Главная папка для всех JSON
-    public static readonly string DbFolder = Path.Combine(BuildRoot, "db");
+    private static readonly string s_buildRoot = GetBuildRoot();
 
-    // 3) Папка для аккаунтов и их общей базы
+    public static readonly string DbFolder = Path.Combine(s_buildRoot, "db");
     public static readonly string PlayerFolder = Path.Combine(DbFolder, "Player");
-
-    // 4) Файл accounts.json (список всех аккаунтов)
     public static readonly string AccountsFile = Path.Combine(PlayerFolder, "accounts.json");
-
-    // 5) Папка со всеми личными данными игроков
     public static readonly string PlayersDataFolder = Path.Combine(PlayerFolder, "PlayersData");
-
-    // 6) Файл для промокодов
     public static readonly string PromoFile = Path.Combine(DbFolder, "promo.json");
+
+    public static void EnsureDbFoldersExist()
+    {
+        try
+        {
+            if (Directory.Exists(DbFolder) == false)
+                Directory.CreateDirectory(DbFolder);
+
+            if (Directory.Exists(PlayerFolder) == false)
+                Directory.CreateDirectory(PlayerFolder);
+
+            if (Directory.Exists(PlayersDataFolder) == false)
+                Directory.CreateDirectory(PlayersDataFolder);
+
+            Debug.Log($"[DbPaths] DB folders ready at {DbFolder}");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[DbPaths] Failed to create DB folders: {ex}");
+            throw;
+        }
+    }
 }
