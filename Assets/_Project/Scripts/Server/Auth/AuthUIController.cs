@@ -1,5 +1,4 @@
-﻿// AuthUIController.cs
-using System.Collections;
+﻿using System.Collections;
 using Mirror;
 using TMPro;
 using UnityEngine;
@@ -25,7 +24,6 @@ public class AuthUIController : MonoBehaviour
     [SerializeField] private Button loginButton;
     [SerializeField] private TMP_Text loginFeedback;
 
-    // temp storage for post-register login
     private string _pendingRegEmail;
     private string _pendingRegNickname;
     private string _pendingRegPassword;
@@ -46,7 +44,6 @@ public class AuthUIController : MonoBehaviour
 
     private void Start()
     {
-        // auto-login if previously remembered
         if (PlayerPrefs.GetInt("RememberMe", 0) == 1)
         {
             loginFeedback.text = "Attempting auto-login...";
@@ -55,7 +52,6 @@ public class AuthUIController : MonoBehaviour
             return;
         }
 
-        ShowLoginPanel("");
         regButton.onClick.AddListener(OnRegisterClicked);
         loginButton.onClick.AddListener(OnLoginClicked);
     }
@@ -128,7 +124,6 @@ public class AuthUIController : MonoBehaviour
         regFeedback.text = msg.message;
         if (!msg.success) return;
 
-        // immediately log in with new credentials
         loginFeedback.text = "Registered! Logging in…";
         AuthRequestData.Type = AuthType.Login;
         AuthRequestData.Nickname = _pendingRegNickname;
@@ -172,10 +167,8 @@ public class AuthUIController : MonoBehaviour
             return;
         }
 
-        // save the RememberMe choice
         PlayerPrefs.SetInt("RememberMe", rememberToggle.isOn ? 1 : 0);
         PlayerPrefs.Save();
 
-        // DeviceAuthenticator.ClientAccept() will then proceed into the game
     }
 }
